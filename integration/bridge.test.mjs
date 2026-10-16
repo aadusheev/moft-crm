@@ -1,0 +1,16 @@
+import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';import crypto from 'node:crypto';
+const header=['Имя','Запрос','Номер телефона','Дата поступления заявки','Менеджер','Статус','Статус продажи','Примечания','Cтатус КП','Комментарий 1','Комментарий 2','Комментарий 3','Комментарий 4','Комментарий 5','id','source_sheet','tg_notified_at','capi_synced_at','sync_hash','form_id','tg_notification','tech_synced_at','manager_sync_hash'];
+const original=['Fixture','Request','000','16.10.2026 10:00:00','owner','Не обработан','','original','','','','','','','test-id','source','tg','capi','hash','form','notification','technical','manager-hash'];
+let row=[...original],writes=0;
+const sheet={getSheetId:()=>0,getDataRange:()=>({getDisplayValues:()=>[header,row]}),getRange:(r,c,n,m)=>{assert.equal(r,2);assert.equal(c,6);assert.equal(n,1);assert.equal(m,3);return {setRichTextValues:v=>{writes++;row.splice(5,3,...v[0]);},getDisplayValues:()=>[row.slice(5,8)]};}};
+const context={SpreadsheetApp:{openById:id=>{assert.equal(id,'1toaLdCJaGDqCyylYLrai2bwz4YEaXIr3r37qF5do7PI');return{getSheetByName:n=>{assert.equal(n,'Заявки');return sheet;}};},newRichTextValue:()=>({setText:s=>({build:()=>s})}),flush:()=>{}},Utilities:{DigestAlgorithm:{SHA_256:'sha256'},computeDigest:(_,s)=>[...crypto.createHash('sha256').update(s).digest()],parseDate:()=>new Date('2026-10-16T05:00:00Z'),computeHmacSha256Signature:(s,key)=>[...crypto.createHmac('sha256',key).update(s).digest()]},PropertiesService:{getScriptProperties:()=>({getProperty:k=> k==='MOFT_BRIDGE_SECRET'?'test-secret':null,setProperty:()=>{}})},LockService:{getScriptLock:()=>({waitLock:()=>{},releaseLock:()=>{}})},ContentService:{createTextOutput:s=>({setMimeType:()=>s}),MimeType:{JSON:'json'}}};
+vm.createContext(context);vm.runInContext(fs.readFileSync('integration/MoftBridge.gs','utf8'),context);
+const call=(request,valid=true)=>{const body=JSON.stringify(request),timestamp=Date.now().toString(),signature=valid?crypto.createHmac('sha256','test-secret').update(timestamp+'.'+body).digest('hex'):'bad';return JSON.parse(context.doPost({postData:{contents:JSON.stringify({body,timestamp,signature})}}));};
+assert.equal(call({action:'list'},false).ok,false);assert.equal(call({action:'list'}).leads.length,1);
+const expected={status:'Не обработан',saleStatus:'',notes:'original'},target={status:'В обработке',saleStatus:'В работе',notes:'=literal text'};
+assert.equal(call({action:'update',id:'test-id',expected,fields:target}).ok,true);assert.equal(writes,1);
+assert.equal(call({action:'update',id:'test-id',expected,fields:target}).ok,true);assert.equal(writes,1);
+assert.equal(call({action:'update',id:'test-id',expected,fields:{...target,notes:'conflict'}}).ok,false);assert.equal(writes,1);
+assert.deepEqual(row.slice(0,5),original.slice(0,5));assert.deepEqual(row.slice(8),original.slice(8));
+assert.equal(call({action:'update',id:'test-id',expected:target,fields:{...target,extra:'forbidden'}}).ok,false);
+console.log('PASS: signed read, unauthorized rejection, only F:H writes, idempotent retry, conflict rejection, literal notes, extra-field rejection.');
