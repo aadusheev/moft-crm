@@ -1,11 +1,13 @@
 'use client';
 import {useEffect,useState,useRef} from 'react';
+import SourceSettings from './source-settings';
 import {Plus,Columns3,Users,BarChart3,X,RefreshCw,Search,ArrowUpRight,ChevronRight,Check,Clock} from 'lucide-react';
 import {Client,Event,Sale,statuses,saleStatuses,sources,dateKey,dayOffset} from '@/lib/crm';
 const money=(n:number)=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(n/100);
 const date=(s:string)=>s?new Date(s.length===10?s+'T12:00:00+05:00':s).toLocaleDateString('ru-RU',{day:'numeric',month:'short',timeZone:'Asia/Tashkent'}):'—';
 type Sync={configured:boolean,lastRead?:string,error?:string};
 export default function CRM(){
+ const [settingsOpen,setSettingsOpen]=useState(false);
  const [clients,setClients]=useState<Client[]>([]),[events,setEvents]=useState<Event[]>([]),[sales,setSales]=useState<Sale[]>([]),[sync,setSync]=useState<Sync>({configured:false});
  const [page,setPage]=useState('Канбан'),[period,setPeriod]=useState(7),[source,setSource]=useState('Все'),[query,setQuery]=useState(''),[reportActor,setReportActor]=useState('Тимур'),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [selected,setSelected]=useState<Client|null>(null),[adding,setAdding]=useState(false),[saleMode,setSaleMode]=useState(false),[requestId,setRequestId]=useState(''),[drop,setDrop]=useState('');
@@ -31,8 +33,8 @@ export default function CRM(){
  const received=(()=>{const m:Record<string,number>={};pe.filter(e=>['sale','payment'].includes(e.type)&&e.amount>0).forEach(e=>m[e.currency]=(m[e.currency]||0)+e.amount);return Object.entries(m).map(([c,n])=>money(n)+' '+c).join(' · ')||'—';})();
  async function pay(e:React.FormEvent<HTMLFormElement>,sale:Sale){e.preventDefault();setBusy(true);setError('');try{const v=Object.fromEntries(new FormData(e.currentTarget));await api({...v,action:'pay',id:sale.clientId,saleId:sale.id,expectedPaid:sale.paid,eventId:requestId});setSelected(null);await refresh();setMessage('Доплата записана');}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
  const columns=[...statuses,...new Set(filtered.map(c=>c.status).filter(s=>!statuses.includes(s as any)))];
- return <div className="shell"><aside><a className="brand" href="/">M<span>MOFT <small>Sales workspace</small></span></a><div className="nav-caption">РАБОЧЕЕ ПРОСТРАНСТВО</div><nav>{[[Columns3,'Канбан'],[Users,'Клиенты'],[BarChart3,'Dashboard']].map(([Icon,label]:any)=><button key={label} className={page===label?'active':''} onClick={()=>{setPage(label);setError('');}}><Icon size={17}/>{label}</button>)}</nav><div className="side-foot"><span className="avatar">Т</span><div>Тимур<small>B2B продажи</small></div></div></aside>
- <main><header><span>MOFT <span className="slash">/</span> {page}</span><div className="header-actions"><span className={'connection '+(sync.configured&&!sync.error?'ok':'')}>{sync.configured?(sync.error?'Ошибка обмена':`MOFT.RACE · ${sync.lastRead?date(sync.lastRead):'подключение'}`):'MOFT.RACE не подключён'}</span><button aria-label="Обновить" title="Обновить" className="icon" onClick={()=>sync.configured?pull():refresh()}><RefreshCw size={16}/></button></div></header>
+ return <div className="shell">{settingsOpen&&<SourceSettings close={()=>setSettingsOpen(false)} changed={refresh} importLeads={async()=>{await api({action:"pull"});await refresh();}}/>}<aside><a className="brand" href="/">M<span>MOFT <small>Sales workspace</small></span></a><div className="nav-caption">РАБОЧЕЕ ПРОСТРАНСТВО</div><nav>{[[Columns3,'Канбан'],[Users,'Клиенты'],[BarChart3,'Dashboard']].map(([Icon,label]:any)=><button key={label} className={page===label?'active':''} onClick={()=>{setPage(label);setError('');}}><Icon size={17}/>{label}</button>)}</nav><div className="side-foot"><span className="avatar">Т</span><div>Тимур<small>B2B продажи</small></div></div></aside>
+ <main><header><span>MOFT <span className="slash">/</span> {page}</span><div className="header-actions"><button className="secondary" onClick={()=>setSettingsOpen(true)}>Подключение таблицы</button><span className={'connection '+(sync.configured&&!sync.error?'ok':'')}>{sync.configured?(sync.error?'Ошибка обмена':`MOFT.RACE · ${sync.lastRead?date(sync.lastRead):'подключение'}`):'MOFT.RACE не подключён'}</span><button aria-label="Обновить" title="Обновить" className="icon" onClick={()=>sync.configured?pull():refresh()}><RefreshCw size={16}/></button></div></header>
  <div className="content"><div className="heading"><div><h1>{page}</h1><p>{page==='Канбан'?'Лиды, разговоры и следующие шаги.':page==='Клиенты'?'Единая база и история всех продаж.':'Работа Тимура и результат в деньгах.'}</p></div><button className="primary" onClick={()=>open(null)}><Plus size={16}/>Клиент</button></div>
  {error&&<div role="alert" className="error">{error}</div>}{message&&<div role="status" className="notice"><Check size={14}/>{message}</div>}
  {clients.some(c=>c.pending===1)&&<div className="warning">Есть изменения, ещё не записанные в MOFT.RACE. Открой карточку с отметкой «Не синхронизировано».</div>}
@@ -54,3 +56,4 @@ export default function CRM(){
  </div>;
 }
 function Stat({title,value,note}:{title:string,value:string|number,note:string}){return <div className="stat"><span>{title}</span><strong>{value}</strong><small>{note}</small></div>;}
+

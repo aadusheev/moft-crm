@@ -15,6 +15,13 @@
       "when": 1792146259339,
       "tag": "0001_wakeful_retro_girl",
       "breakpoints": true
+    },
+    {
+      "version": "6",
+      "breakpoints": true,
+      "when": 1792195200000,
+      "idx": 2,
+      "tag": "0002_source_settings"
     }
   ]
 }
