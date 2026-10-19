@@ -17,7 +17,7 @@ async function push(id:string){
 }
 export async function GET(){
  if(!await getChatGPTUser())return json({error:'Нужно войти'},401);
- try{const db=getDb();return json({clients:await db.select().from(clients).orderBy(desc(clients.updatedAt)),events:await db.select().from(events).orderBy(desc(events.createdAt)),sales:await db.select().from(sales).orderBy(desc(sales.date),desc(sales.createdAt)),sync:{configured:bridgeReady(),...(await db.select().from(syncState))[0]}});}catch{return json({error:'База временно недоступна'},503);}
+ try{const db=getDb();return json({clients:await db.select().from(clients).orderBy(desc(clients.updatedAt)),events:await db.select().from(events).orderBy(desc(events.createdAt)),sales:await db.select().from(sales).orderBy(desc(sales.date),desc(sales.createdAt)),sync:{configured:await bridgeReady(),...(await db.select().from(syncState))[0]}});}catch{return json({error:'База временно недоступна'},503);}
 }
 export async function POST(req:Request){
  const user=await getChatGPTUser();if(!user)return json({error:'Нужно войти'},401);
@@ -77,3 +77,4 @@ export async function POST(req:Request){
  return json({ok:true});
  }catch{return json({error:'Не удалось сохранить. Повторите запрос; повторная отправка не создаёт второй записи.'},500);}
 }
+

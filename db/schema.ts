@@ -19,3 +19,9 @@ export const events = sqliteTable('events', {
  note:text('note').notNull(), stage:text('stage').notNull(), amount:integer('amount').notNull().default(0),
  currency:text('currency').notNull(), actor:text('actor').notNull(), createdAt:text('created_at').notNull(),
 });
+
+export const sourceSettings = sqliteTable('source_settings', {
+ id:text('id').primaryKey(),bridgeUrl:text('bridge_url').notNull(),secretCipher:text('secret_cipher').notNull(),
+ enabled:integer('enabled').notNull().default(1),revision:integer('revision').notNull().default(1),
+ lastChecked:text('last_checked').notNull(),updatedBy:text('updated_by').notNull(),
+});
