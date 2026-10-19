@@ -1,4 +1,4 @@
-import {getChatGPTUser} from '@/app/chatgpt-auth';
+import {getCRMUser} from '@/lib/crm-auth';
 import {getDb} from '@/db';
 import {clients,events,sales,syncState} from '@/db/schema';
 import {desc,eq,and,sql} from 'drizzle-orm';
@@ -16,11 +16,11 @@ async function push(id:string){
  }catch(e){await db.update(clients).set({syncError:(e as Error).message}).where(and(eq(clients.id,id),eq(clients.version,c.version)));}
 }
 export async function GET(){
- if(!await getChatGPTUser())return json({error:'Нужно войти'},401);
+ if(!await getCRMUser())return json({error:'Нужно войти'},401);
  try{const db=getDb();return json({clients:await db.select().from(clients).orderBy(desc(clients.updatedAt)),events:await db.select().from(events).orderBy(desc(events.createdAt)),sales:await db.select().from(sales).orderBy(desc(sales.date),desc(sales.createdAt)),sync:{configured:await bridgeReady(),...(await db.select().from(syncState))[0]}});}catch{return json({error:'База временно недоступна'},503);}
 }
 export async function POST(req:Request){
- const user=await getChatGPTUser();if(!user)return json({error:'Нужно войти'},401);
+ const user=await getCRMUser();if(!user)return json({error:'Нужно войти'},401);
  if(req.headers.get('origin')!==new URL(req.url).origin)return json({error:'Недопустимый источник'},403);
  try{
  const raw=await req.json();if(!raw||typeof raw!=='object'||Array.isArray(raw))return json({error:'Некорректный запрос'},400);
