@@ -1,22 +1,22 @@
-import {getChatGPTUser} from '@/app/chatgpt-auth';
+import {getCRMUser} from '@/lib/crm-auth';
 import {getDb} from '@/db';
 import {clients,sourceSettings} from '@/db/schema';
 import {eq,isNotNull} from 'drizzle-orm';
-import {canManageSource,settingsMaster,savedSource,settingsEnv,activeSource} from '@/lib/source-settings';
+import {settingsMaster,savedSource,settingsEnv,activeSource} from '@/lib/source-settings';
 import {callBridge,encryptSecret,decryptSecret,validateBridge,validateLeads} from '@/lib/bridge-security.mjs';
 export const dynamic='force-dynamic';
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'private, no-store'}});
 export async function GET(){
- const user=await getChatGPTUser();if(!user)return json({error:'Нужно войти'},401);
- if(!canManageSource(user.email))return json({error:'Подключением управляет владелец CRM'},403);
+ const user=await getCRMUser();if(!user)return json({error:'Нужно войти'},401);
+ if(user.role!=='owner')return json({error:'Подключением управляет владелец CRM'},403);
  try{
   const saved=await savedSource(),e=settingsEnv();
   return json({bridgeUrl:saved?.bridgeUrl||e.MOFT_BRIDGE_URL||'',hasSecret:!!(saved?.secretCipher||e.MOFT_BRIDGE_SECRET),enabled:saved?!!saved.enabled:!!(e.MOFT_BRIDGE_URL&&e.MOFT_BRIDGE_SECRET),canSave:settingsMaster().length>=32,revision:saved?.revision||0,lastChecked:saved?.lastChecked||''});
  }catch{return json({error:'Настройки недоступны. Проверь миграцию базы на сервере.'},503);}
 }
 export async function POST(req:Request){
- const user=await getChatGPTUser();if(!user)return json({error:'Нужно войти'},401);
- if(!canManageSource(user.email))return json({error:'Подключением управляет владелец CRM'},403);
+ const user=await getCRMUser();if(!user)return json({error:'Нужно войти'},401);
+ if(user.role!=='owner')return json({error:'Подключением управляет владелец CRM'},403);
  if(req.headers.get('origin')!==new URL(req.url).origin)return json({error:'Недопустимый источник'},403);
  if(Number(req.headers.get('content-length')||0)>8192)return json({error:'Слишком большой запрос'},413);
  try{
